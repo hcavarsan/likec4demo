@@ -1,0 +1,54 @@
+views 'Use Cases' {
+
+  // Sequence variant with every flow-control block: opt, loop, alt/when/else, parallel, try/catch/finally
+  dynamic view checkout-sequence {
+    #teamB #v2
+    title 'Usecase 03: Checkout (sequence diagram)'
+    description '''
+      Checkout as a UML sequence diagram.
+
+      Shows optional, repeated, alternative, parallel and error-handling steps.
+    '''
+    variant sequence
+
+    customer -> boutique.frontend.checkout 'clicks "Pay"'
+    boutique.frontend.checkout -> boutique.checkout 'initiates checkout' {
+      technology 'POST /checkout'
+    }
+    boutique.checkout -> boutique.cart.api 'gets cart'
+    opt 'cart not in cache' {
+      boutique.cart.api -> boutique.cart.cache 'loads cart'
+      boutique.cart.api <- boutique.cart.cache 'cart data'
+    }
+    boutique.checkout <- boutique.cart.api 'cart items'
+
+    try 'charge card' {
+      boutique.checkout -> boutique.payments.processor 'charges card'
+      loop 'until final status, max 3 attempts' {
+        boutique.payments.processor -> payment-gateway 'requests authorization'
+        boutique.payments.processor <- payment-gateway 'authorization status'
+      }
+      alt {
+        when 'approved' {
+          boutique.payments.processor -> boutique.db.orders 'marks order as paid'
+          boutique.checkout <- boutique.payments.processor 'payment confirmed'
+          parallel {
+            boutique.checkout -> boutique.email 'sends receipt'
+            boutique.checkout -> boutique.shipping 'requests fulfillment' {
+              navigateTo order-fulfillment
+            }
+          }
+        }
+        else 'declined' {
+          boutique.checkout <- boutique.payments.processor 'payment declined'
+        }
+      }
+    } catch 'gateway timeout' {
+      boutique.checkout -> boutique.actionLog 'logs failed payment'
+    } finally {
+      boutique.frontend.checkout <- boutique.checkout 'checkout result'
+    }
+
+    customer <- boutique.frontend.checkout 'shows order status'
+  }
+}

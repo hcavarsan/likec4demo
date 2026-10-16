@@ -1,0 +1,90 @@
+// View features not covered by the base template:
+// global style/predicate groups, extends, groups, rank, routing, tag/kind filters
+
+global {
+  styleGroup by-team {
+    style * {
+      color secondary
+    }
+    style element.tag = #teamA {
+      color indigo
+    }
+    style element.tag = #teamB {
+      color amber
+    }
+    style element.tag = #deprecated {
+      color muted
+      border dashed
+    }
+  }
+
+  predicateGroup live-services {
+    include boutique.* where kind is service
+    exclude * where tag is #deprecated
+  }
+}
+
+views 'Showcase' {
+
+  view services {
+    title 'Services (global predicate)'
+    description 'All services, selected by kind via a reusable predicate group.'
+    routing ortho
+
+    global predicate live-services
+    include payment-gateway, email-provider
+    global style by-team
+  }
+
+  view services-with-data extends services {
+    title 'Services and Database (extends)'
+    description 'Extends **services** and adds the database tables.'
+
+    include boutique.db, boutique.db.*
+  }
+
+  view teams {
+    title 'Ownership by Team (groups)'
+
+    group 'Team A' {
+      color indigo
+      include
+        boutique.* where tag is #teamA
+    }
+    group 'Team B' {
+      color amber
+      include
+        boutique.* where tag is #teamB
+    }
+    group 'Unassigned' {
+      color muted
+      opacity 10%
+      include
+        boutique.* where tag is not #teamA and tag is not #teamB
+    }
+    include customer
+    // keep the system container out, otherwise its children nest under it instead of the groups
+    exclude boutique
+    global style by-team
+  }
+
+  view roadmap of boutique {
+    title 'Roadmap (tag filters)'
+    description 'Elements planned for the next release are highlighted; deprecated ones are hidden.'
+
+    include
+      *,
+      customer,
+      boutique.frontend.*
+    exclude
+      * where tag is #deprecated
+    style element.tag = #next {
+      color green
+      border dashed
+    }
+
+    rank source {
+      customer
+    }
+  }
+}
